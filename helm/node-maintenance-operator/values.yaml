@@ -1,0 +1,221 @@
+# Default values for node-maintenance-operator
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  # Image registry for all images
+  imageRegistry: ""
+  # Image pull secrets
+  imagePullSecrets: []
+
+# Operator image configuration
+image:
+  repository: quay.io/medik8s/node-maintenance-operator
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Deployment configuration
+replicaCount: 1
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 200m
+    memory: 100Mi
+  requests:
+    cpu: 100m
+    memory: 20Mi
+
+# Node selector for pod placement
+nodeSelector: {}
+
+# Tolerations for pod scheduling
+tolerations:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+    operator: Exists
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/control-plane
+    operator: Exists
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/infra
+    operator: Exists
+  - effect: NoExecute
+    key: node-role.kubernetes.io/infra
+    operator: Exists
+
+# Affinity configuration (OpenShift-style node affinity)
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 3
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/infra
+              operator: Exists
+      - weight: 1
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/master
+              operator: Exists
+      - weight: 1
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - "ALL"
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+
+# Priority class
+priorityClassName: "system-cluster-critical"
+
+# Service account configuration
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# RBAC configuration
+rbac:
+  # Specifies whether RBAC resources should be created
+  create: true
+
+# Leader election configuration
+leaderElection:
+  enabled: true
+
+# Webhook configuration
+webhook:
+  # Enable webhook
+  enabled: true
+  # Webhook port
+  port: 9443
+  # Service configuration
+  service:
+    port: 443
+    targetPort: 9443
+  # Failure policy for webhook
+  failurePolicy: Fail
+  # Timeout for webhook operations
+  timeoutSeconds: 15
+  # Certificate management
+  certManager:
+    # Use cert-manager for certificate generation
+    enabled: false
+    # Certificate duration
+    duration: 8760h # 1 year
+    # Certificate renewal before expiration
+    renewBefore: 360h # 15 days
+
+# Custom Resource Definitions
+crds:
+  # Install CRDs
+  install: true
+  # Keep CRDs on uninstall
+  keep: false
+
+# Monitoring configuration
+monitoring:
+  # Enable Prometheus monitoring
+  enabled: false
+  # ServiceMonitor configuration
+  serviceMonitor:
+    # Enable ServiceMonitor creation
+    enabled: false
+    # Additional labels for ServiceMonitor
+    additionalLabels: {}
+    # Scrape interval
+    interval: 30s
+    # Metrics path
+    path: /metrics
+    # Scrape timeout
+    scrapeTimeout: 10s
+
+# Proxy configuration for kube-rbac-proxy
+proxy:
+  # Enable kube-rbac-proxy sidecar
+  enabled: false
+  image:
+    repository: quay.io/brancz/kube-rbac-proxy
+    tag: v0.15.0
+    pullPolicy: IfNotPresent
+  port: 8443
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 5m
+      memory: 64Mi
+
+# Health probes configuration
+healthProbes:
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8081
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8081
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+# Operator configuration
+operator:
+  # Operator arguments
+  args:
+    - --leader-elect
+  # Environment variables
+  env: []
+  # Additional environment variables from configmaps/secrets
+  envFrom: []
+
+# Namespace configuration
+namespaceOverride: ""
+
+# Additional labels to add to all resources
+additionalLabels: {}
+
+# Additional annotations to add to all resources  
+additionalAnnotations: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Network policies
+networkPolicy:
+  enabled: false
+  # Additional ingress rules
+  additionalIngressRules: []
+  # Additional egress rules
+  additionalEgressRules: []
+
+# OpenShift specific settings
+openshift:
+  # Enable OpenShift-specific configurations
+  enabled: false
+  # Security context constraints
+  scc:
+    create: false
+    name: "" 

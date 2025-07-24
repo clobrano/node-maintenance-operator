@@ -1,0 +1,65 @@
+1. Get the application URL by running these commands:
+{{- if .Values.webhook.enabled }}
+
+  The Node Maintenance Operator has been installed with webhook validation enabled.
+
+{{- else }}
+
+  The Node Maintenance Operator has been installed without webhook validation.
+
+{{- end }}
+
+2. Check that the operator is running:
+
+  kubectl get pods -n {{ include "node-maintenance-operator.namespace" . }} -l {{ include "node-maintenance-operator.selectorLabels" . | replace ": " "=" | replace "\n" "," }}
+
+3. Verify the operator is ready:
+
+  kubectl get deployment {{ include "node-maintenance-operator.fullname" . }}-controller-manager -n {{ include "node-maintenance-operator.namespace" . }}
+
+4. Check the Custom Resource Definition:
+
+  kubectl get crd nodemaintenances.nodemaintenance.medik8s.io
+
+5. Create a NodeMaintenance resource to test the operator:
+
+  cat <<EOF | kubectl apply -f -
+  apiVersion: nodemaintenance.medik8s.io/v1beta1
+  kind: NodeMaintenance
+  metadata:
+    name: test-maintenance
+  spec:
+    nodeName: <NODE_NAME>
+    reason: "Testing node maintenance operator"
+  EOF
+
+  Replace <NODE_NAME> with an actual node name from: kubectl get nodes
+
+6. Monitor the maintenance process:
+
+  kubectl get nodemaintenance test-maintenance -o yaml
+
+7. Clean up the test:
+
+  kubectl delete nodemaintenance test-maintenance
+
+{{- if .Values.monitoring.enabled }}
+
+8. Access metrics (if monitoring is enabled):
+{{- if .Values.proxy.enabled }}
+
+  kubectl port-forward service/{{ include "node-maintenance-operator.proxyServiceName" . }} 8443:{{ .Values.proxy.port }} -n {{ include "node-maintenance-operator.namespace" . }}
+  
+  Then access https://localhost:8443/metrics (with proper authentication)
+
+{{- else }}
+
+  kubectl port-forward service/{{ include "node-maintenance-operator.proxyServiceName" . }} 8080:8080 -n {{ include "node-maintenance-operator.namespace" . }}
+  
+  Then access http://localhost:8080/metrics
+
+{{- end }}
+{{- end }}
+
+For more information about the Node Maintenance Operator, visit:
+https://github.com/medik8s/node-maintenance-operator 

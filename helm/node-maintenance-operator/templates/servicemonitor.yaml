@@ -1,0 +1,57 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "node-maintenance-operator.proxyServiceName" . }}
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+spec:
+  ports:
+  {{- if .Values.proxy.enabled }}
+  - name: https
+    port: {{ .Values.proxy.port }}
+    protocol: TCP
+    targetPort: https
+  {{- else }}
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: metrics
+  {{- end }}
+  selector:
+    {{- include "node-maintenance-operator.selectorLabels" . | nindent 4 }}
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "node-maintenance-operator.fullname" . }}-controller-manager-metrics-monitor
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+spec:
+  endpoints:
+  - interval: {{ .Values.monitoring.serviceMonitor.interval }}
+    path: {{ .Values.monitoring.serviceMonitor.path }}
+    {{- if .Values.proxy.enabled }}
+    port: https
+    scheme: https
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tlsConfig:
+      insecureSkipVerify: true
+    {{- else }}
+    port: http
+    scheme: http
+    {{- end }}
+    scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout }}
+  selector:
+    matchLabels:
+      {{- include "node-maintenance-operator.selectorLabels" . | nindent 6 }}
+{{- end }} 

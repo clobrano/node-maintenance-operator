@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "node-maintenance-operator.fullname" . }}-controller-manager
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "node-maintenance-operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+        {{- include "node-maintenance-operator.annotations" . | nindent 8 }}
+      labels:
+        {{- include "node-maintenance-operator.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "node-maintenance-operator.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      terminationGracePeriodSeconds: 10
+      containers:
+      {{- if .Values.proxy.enabled }}
+      - name: kube-rbac-proxy
+        image: {{ include "node-maintenance-operator.proxyImage" . }}
+        imagePullPolicy: {{ .Values.proxy.image.pullPolicy }}
+        args:
+        - "--secure-listen-address=0.0.0.0:{{ .Values.proxy.port }}"
+        - "--http2-disable"
+        - "--upstream=http://127.0.0.1:8080/"
+        - "--logtostderr=true"
+        - "--v=0"
+        ports:
+        - containerPort: {{ .Values.proxy.port }}
+          protocol: TCP
+          name: https
+        {{- with .Values.proxy.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+      {{- end }}
+      - name: manager
+        image: {{ include "node-maintenance-operator.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - /manager
+        args:
+        {{- include "node-maintenance-operator.args" . | nindent 8 }}
+        {{- with .Values.operator.env }}
+        env:
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.operator.envFrom }}
+        envFrom:
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        ports:
+        - containerPort: 8081
+          name: health
+          protocol: TCP
+        {{- if not .Values.proxy.enabled }}
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        {{- end }}
+        {{- if .Values.webhook.enabled }}
+        - containerPort: {{ .Values.webhook.port }}
+          name: webhook-server
+          protocol: TCP
+        {{- end }}
+        livenessProbe:
+          {{- toYaml .Values.healthProbes.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.healthProbes.readinessProbe | nindent 10 }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- if .Values.webhook.enabled }}
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+        {{- end }}
+      {{- if .Values.webhook.enabled }}
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: {{ include "node-maintenance-operator.webhookCertSecret" . }}
+      {{- end }} 

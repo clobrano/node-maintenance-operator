@@ -1,0 +1,260 @@
+{{- if .Values.rbac.create }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "node-maintenance-operator.managerRoleName" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/eviction
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - nodemaintenance.medik8s.io
+  resources:
+  - nodemaintenances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nodemaintenance.medik8s.io
+  resources:
+  - nodemaintenances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - nodemaintenance.medik8s.io
+  resources:
+  - nodemaintenances/status
+  verbs:
+  - get
+  - patch
+  - update
+{{- if .Values.openshift.enabled }}
+- apiGroups:
+  - oauth.openshift.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+{{- end }}
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - get
+  - list
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "node-maintenance-operator.managerRoleBindingName" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "node-maintenance-operator.managerRoleName" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "node-maintenance-operator.serviceAccountName" . }}
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+
+{{- if .Values.leaderElection.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "node-maintenance-operator.leaderElectionRoleName" . }}
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "node-maintenance-operator.leaderElectionRoleBindingName" . }}
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "node-maintenance-operator.leaderElectionRoleName" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "node-maintenance-operator.serviceAccountName" . }}
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+{{- end }}
+
+{{- if .Values.proxy.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "node-maintenance-operator.proxyClientClusterRoleName" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+rules:
+- nonResourceURLs:
+  - "/metrics"
+  verbs:
+  - get
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "node-maintenance-operator.proxyRoleName" . }}
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "node-maintenance-operator.proxyRoleBindingName" . }}
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "node-maintenance-operator.proxyRoleName" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "node-maintenance-operator.serviceAccountName" . }}
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+{{- end }}
+{{- end }} 

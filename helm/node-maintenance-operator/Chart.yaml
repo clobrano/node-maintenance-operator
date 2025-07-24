@@ -1,0 +1,27 @@
+apiVersion: v2
+name: node-maintenance-operator
+description: Node Maintenance Operator for safely cordoning and draining Kubernetes nodes
+type: application
+version: 0.1.0
+appVersion: "0.0.1"
+home: https://github.com/medik8s/node-maintenance-operator
+sources:
+  - https://github.com/medik8s/node-maintenance-operator
+maintainers:
+  - name: Medik8s Team
+    url: https://github.com/medik8s
+keywords:
+  - kubernetes
+  - operator
+  - node-maintenance
+  - drain
+  - cordon
+annotations:
+  category: Infrastructure
+  artifacthub.io/operator: "true"
+  artifacthub.io/operatorCapabilities: Basic Install
+  artifacthub.io/prerelease: "true"
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/images: |
+    - name: node-maintenance-operator
+      image: quay.io/medik8s/node-maintenance-operator:latest 

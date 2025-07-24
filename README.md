@@ -13,15 +13,50 @@ The purpose of this operator is to watch for new or deleted custom resources (CR
 
 > *Note*:  The current behavior of the operator is to mimic `kubectl drain <node name>`.
 
-## Build and run the operator
+## Deployment Options
 
-There are three ways to run the operator:
+The Node Maintenance Operator can be deployed using two methods:
 
-- Deploy the latest version, which was built from the `main` branch, to a running OpenShift/Kubernetes cluster.
-- Deploy the last release version from OperatorHub to a running Kubernetes cluster.
-- Build and deploy from sources to a running or to be created OpenShift/Kubernetes cluster.
+### 1. Helm Charts (Recommended for Kubernetes)
 
-### Deploy the latest version
+The Helm chart provides flexible configuration options and better integration with GitOps workflows.
+
+#### Quick Start with Helm
+
+```bash
+# Install from local chart
+git clone https://github.com/medik8s/node-maintenance-operator-helm.git
+cd node-maintenance-operator-helm/helm
+
+# Simple installation (webhooks disabled for quick testing)
+helm install node-maintenance-operator ./node-maintenance-operator \
+  --namespace node-maintenance-operator-system \
+  --create-namespace \
+  --set webhook.enabled=false
+
+# For production with webhooks, install cert-manager first:
+# kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+# kubectl wait --for=condition=ready pod -l app=cert-manager -n cert-manager --timeout=300s
+# Then: --set webhook.enabled=true --set webhook.certManager.enabled=true
+```
+
+#### Features
+
+- ✅ Flexible configuration via values.yaml
+- ✅ GitOps-friendly (ArgoCD, Flux)
+- ✅ Version management and rollbacks
+- ✅ Optional webhook validation
+- ✅ Monitoring integration (Prometheus)
+- ✅ cert-manager integration
+- ✅ OpenShift compatibility
+
+📖 **[Complete Helm Deployment Guide](docs/helm-deployment-guide.md)**
+
+### 2. OLM (Operator Lifecycle Manager)
+
+Traditional deployment method for OpenShift and OLM-enabled clusters.
+
+#### Deploy the latest version
 
 After every PR merge to `main` branch images were build and pushed to `quay.io`.
 For deployment of NMO using these images you need:
@@ -32,13 +67,26 @@ For deployment of NMO using these images you need:
 
 Then run `operator-sdk run bundle quay.io/medik8s/node-maintenance-operator-bundle:latest`
 
-### Deploy the last release version
+#### Deploy the last release version
 Click on `Install` in the Node Maintenance Operator page under [OperatorHub.io](https://operatorhub.io/operator/node-maintenance-operator), 
 and follow its instructions to install the [Operator Lifecycle Manager (OLM)](https://olm.operatorframework.io/), and the operator.
 
-### Build and deploy from sources
+#### Build and deploy from sources
 Follow the instructions [here](https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/#3-deploy-your-operator-with-olm) for deploying the operator with OLM.
 > *Note*: Webhook cannot run using `make deploy`, because the volume mount of the webserver certificate is not found.
+
+## Local Development and Testing
+
+### Setting up a Test Cluster
+
+📖 **[Local Testing Setup Guide](docs/local-testing-setup.md)** - Comprehensive guide for setting up local clusters with kind, minikube, or k3d.
+
+### Automated Testing
+
+```bash
+# Run comprehensive Helm chart tests
+./helm/test-deployment.sh --namespace nmo-test --release-name test-nmo
+```
 
 ## Setting Node Maintenance
 
@@ -49,122 +97,128 @@ The `NodeMaintenance` CR spec contains:
 - nodeName: The name of the node which will be put into maintenance mode.
 - reason: The reason why the node will be under maintenance.
 
-Create the example `NodeMaintenance` CR found at `config/samples/nodemaintenance_v1beta1_nodemaintenance.yaml`:
+Example:
 
-```sh
-$ cat config/samples/nodemaintenance_v1beta1_nodemaintenance.yaml
+```yaml
 apiVersion: nodemaintenance.medik8s.io/v1beta1
 kind: NodeMaintenance
 metadata:
-  name: nodemaintenance-sample
+  name: nodemaintenance-node02
 spec:
   nodeName: node02
-  reason: "Test node maintenance"
-
-$ kubectl apply -f config/samples/nodemaintenance_v1beta1_nodemaintenance.yaml
-
-$ kubectl logs <nmo-pod-name>
-022-02-23T07:33:58.924Z INFO controller-runtime.manager.controller.nodemaintenance Reconciling NodeMaintenance {"reconciler group": "nodemaintenance.medik8s.io", "reconciler kind": "NodeMaintenance", "name": "nodemaintenance-sample", "namespace": ""}
-2022-02-23T07:33:59.266Z INFO controller-runtime.manager.controller.nodemaintenance Applying maintenance mode {"reconciler group": "nodemaintenance.medik8s.io", "reconciler kind": "NodeMaintenance", "name": "nodemaintenance-sample", "namespace": "", "node": "node02", "reason": "Test node maintenance"}
-time="2022-02-24T11:58:20Z" level=info msg="Maintenance taints will be added to node node02"
-time="2022-02-24T11:58:20Z" level=info msg="Applying medik8s.io/drain taint add on Node: node02"
-time="2022-02-24T11:58:20Z" level=info msg="Patching taints on Node: node02"
-2022-02-23T07:33:59.336Z INFO controller-runtime.manager.controller.nodemaintenance Evict all Pods from Node {"reconciler group": "nodemaintenance.medik8s.io", "reconciler kind": "NodeMaintenance", "name": "nodemaintenance-sample", "namespace": "", "nodeName": "node02"}
-E0223 07:33:59.498801 1 nodemaintenance_controller.go:449] WARNING: ignoring DaemonSet-managed Pods: openshift-cluster-node-tuning-operator/tuned-jrprj, openshift-dns/dns-default-kf6jj, openshift-dns/node-resolver-72jzb, openshift-image-registry/node-ca-czgc6, openshift-ingress-canary/ingress-canary-44tgv, openshift-machine-config-operator/machine-config-daemon-csv6c, openshift-monitoring/node-exporter-rzwhz, openshift-multus/multus-additional-cni-plugins-829bh, openshift-multus/multus-qwfc9, openshift-multus/network-metrics-daemon-pxt6n, openshift-network-diagnostics/network-check-target-qqcbr, openshift-sdn/sdn-s5cqx; deleting Pods not managed by ReplicationController, ReplicaSet, Job, DaemonSet or StatefulSet: openshift-marketplace/nmo-downstream-8-8nms7
-I0223 07:33:59.500418 1 nodemaintenance_controller.go:449] evicting pod openshift-network-diagnostics/network-check-source-865d4b5578-n2cxg
-I0223 07:33:59.500790 1 nodemaintenance_controller.go:449] evicting pod openshift-ingress/router-default-7548cf6fb5-rgxrq
-I0223 07:33:59.500944 1 nodemaintenance_controller.go:449] evicting pod openshift-marketplace/12a4cfa0c2be01867daf1d9b7ad7c0ae7a988fd957a2ad6df0d72ff6875lhcx
-I0223 07:33:59.501061 1 nodemaintenance_controller.go:449] evicting pod openshift-marketplace/nmo-downstream-8-8nms7
-...
+  reason: "Testing node maintenance"
 ```
 
 ### Set Maintenance off - Delete the NodeMaintenance CR
 
-To remove maintenance from a node, delete the corresponding `NodeMaintenance` (or `nm` which is a shortName) CR:
+To remove maintenance from a node, the `NodeMaintenance` custom resource should be deleted.
 
-```sh
-$ kubectl delete nm nodemaintenance-sample
-nodemaintenance.nodemaintenance.medik8s.io "nodemaintenance-sample" deleted
-$ kubectl logs <nmo-pod-name>
-2022-02-24T14:27:35.332Z INFO controller-runtime.manager.controller.nodemaintenance Reconciling NodeMaintenance {"reconciler group": "nodemaintenance.medik8s.io", "reconciler kind": "NodeMaintenance", "name": "nodemaintenance-sample", "namespace": ""}
-time="2022-02-24T14:27:35Z" level=info msg="Maintenance taints will be removed from node node02"
-time="2022-02-24T14:27:35Z" level=info msg="Applying medik8s.io/drain taint remove on Node: node02"
-...
+Example:
+
+```bash
+kubectl delete nodemaintenance nodemaintenance-node02
 ```
 
-## NodeMaintenance Status
+### NodeMaintenance CR Status
 
-The `NodeMaintenance` CR can contain the following status fields:
+User can query the NodeMaintenance CR status as follows:
 
-```sh
-$ kubectl get nm nodemaintenance-sample -o yaml
-apiVersion: nodemaintenance.medik8s.io/v1beta1
-kind: NodeMaintenance
-metadata:
-  name: nodemaintenance-sample
-spec:
-  nodeName: node02
-  reason: Test node maintenance
+```bash
+kubectl get nodemaintenance nodemaintenance-node02 -o yaml
+```
+
+For detailed status information see `status` section in the CR:
+
+```yaml
 status:
-  drainProgress: 40
-  evictionPods: 5
-  lastError: "Last failure message"
-  lastUpdate: "2022-06-23T11:43:18Z"
-  pendingPods:
-  - pod-A
-  - pod-B
-  - pod-C
-  phase: Running
-  totalpods: 19
+  drainProgress: 100
+  evictionPods: 3
+  lastError: ""
+  lastUpdate: "2021-09-22T08:13:43Z"
+  pendingPods: 
+  phase: Succeeded
+  totalpods: 3
 ```
 
-`drainProgress` shows the percentage completion of draining the node.
+## Configuration
 
-`evictionPods` is the total number of pods up for eviction, before the node entered maintenance mode.
+### Helm Configuration
 
-`lastError` represents the latest error if any for the latest reconciliation.
+The Helm chart supports extensive configuration options:
 
-`lastUpdate` is the last time the status has been updated.
+```yaml
+# Example values.yaml
+webhook:
+  enabled: true
+  certManager:
+    enabled: true
 
-`pendingPods` is a list of pending pods for eviction.
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
 
-`phase` is the representation of the maintenance progress and can hold a string value of: Running|Succeeded.
-The phase is updated for each processing attempt on the CR.
+resources:
+  limits:
+    cpu: 200m
+    memory: 100Mi
+  requests:
+    cpu: 100m
+    memory: 20Mi
 
-`totalPods` is the total number of pods, before the node entered maintenance mode.
+# OpenShift specific settings
+openshift:
+  enabled: true
+```
 
-## Debug
-### Collecting cluster data with must-gather
+See [helm/node-maintenance-operator/values.yaml](helm/node-maintenance-operator/values.yaml) for all available options.
 
-Use NMO's must-gather from [here](https://github.com/medik8s/node-maintenance-operator/tree/main/must-gather) to collect related debug data.
+## Migration from OLM to Helm
 
-## Tests
+If you're currently using OLM deployment and want to migrate to Helm:
 
-### Run code checks and unit tests
+📖 **[Migration Guide](docs/helm-deployment-guide.md#migration-from-olm)** - Step-by-step migration instructions.
 
-`make check`
+## Troubleshooting
 
-### Run e2e tests
+### Common Issues
 
-1. Deploy the operator as explained above
-2. run `make cluster-functest`
+1. **Webhook certificate issues**: See [troubleshooting guide](docs/helm-deployment-guide.md#troubleshooting)
+2. **Node not being cordoned**: Check operator logs and RBAC permissions
+3. **Pods not evicting**: Verify PodDisruptionBudgets and pod deletion policies
 
-## Releases
+### Debug Information
 
-### Creating a new release
+```bash
+# Check operator status
+kubectl get deployment -n node-maintenance-operator-system
+kubectl logs -n node-maintenance-operator-system -l control-plane=controller-manager
 
-For new minor releases:
+# Check NodeMaintenance resources
+kubectl get nodemaintenance -o yaml
+kubectl describe nodemaintenance <name>
+```
 
-  - create and push the `release-0.y` branch.
-  - update OpenshiftCI with new branches!
+## Contributing
 
-For every major / minor / patch release:
+1. Fork the repository
+2. Create your feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass: `./helm/test-deployment.sh`
+5. Submit a pull request
 
-  - create and push the `vx.y.z` tag.
-  - this should trigger CI to build and push new images
-  - if it fails, the manual fallback is `VERSION=x.y.z make container-build-and-push-community`
-  - make the git tag a release in the GitHub UI.
+## License
 
-## Help
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-Feel free to join our Google group to get more info - https://groups.google.com/g/medik8s
+## Community
+
+- **GitHub Issues**: [Report bugs and request features](https://github.com/medik8s/node-maintenance-operator/issues)
+- **Slack**: Join us in the [#medik8s channel](https://kubernetes.slack.com/channels/medik8s) on Kubernetes Slack
+- **Documentation**: [Project Wiki](https://github.com/medik8s/node-maintenance-operator/wiki)
+
+## Related Projects
+
+- [Self Node Remediation](https://github.com/medik8s/self-node-remediation) - Automatic node remediation
+- [Node Healthcheck Operator](https://github.com/medik8s/node-healthcheck-operator) - Node health monitoring
+- [Poison Pill](https://github.com/medik8s/poison-pill) - Node failure detection and remediation

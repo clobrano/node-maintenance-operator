@@ -1,0 +1,92 @@
+{{- if .Values.webhook.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "node-maintenance-operator.webhookServiceName" . }}
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+spec:
+  ports:
+  - port: {{ .Values.webhook.service.port }}
+    protocol: TCP
+    targetPort: {{ .Values.webhook.service.targetPort }}
+  selector:
+    {{- include "node-maintenance-operator.selectorLabels" . | nindent 4 }}
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "node-maintenance-operator.validatingWebhookName" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- if or .Values.webhook.certManager.enabled .Values.additionalAnnotations }}
+  annotations:
+    {{- if .Values.webhook.certManager.enabled }}
+    cert-manager.io/inject-ca-from: {{ include "node-maintenance-operator.namespace" . }}/{{ include "node-maintenance-operator.webhookCertName" . }}
+    {{- end }}
+    {{- include "node-maintenance-operator.annotations" . | nindent 4 }}
+  {{- end }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "node-maintenance-operator.webhookServiceName" . }}
+      namespace: {{ include "node-maintenance-operator.namespace" . }}
+      path: /validate-nodemaintenance-medik8s-io-v1beta1-nodemaintenance
+    {{- if not .Values.webhook.certManager.enabled }}
+    caBundle: # This needs to be populated with the CA certificate
+    {{- end }}
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  name: vnodemaintenance.kb.io
+  rules:
+  - apiGroups:
+    - nodemaintenance.medik8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - nodemaintenances
+  sideEffects: None
+  timeoutSeconds: {{ .Values.webhook.timeoutSeconds }}
+
+{{- if .Values.webhook.certManager.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "node-maintenance-operator.fullname" . }}-selfsigned-issuer
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+spec:
+  selfSigned: {}
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "node-maintenance-operator.webhookCertName" . }}
+  namespace: {{ include "node-maintenance-operator.namespace" . }}
+  labels:
+    {{- include "node-maintenance-operator.labels" . | nindent 4 }}
+  {{- include "node-maintenance-operator.annotations" . | nindent 2 }}
+spec:
+  dnsNames:
+  - {{ include "node-maintenance-operator.webhookServiceName" . }}.{{ include "node-maintenance-operator.namespace" . }}.svc
+  - {{ include "node-maintenance-operator.webhookServiceName" . }}.{{ include "node-maintenance-operator.namespace" . }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: {{ include "node-maintenance-operator.fullname" . }}-selfsigned-issuer
+  secretName: {{ include "node-maintenance-operator.webhookCertSecret" . }}
+  duration: {{ .Values.webhook.certManager.duration }}
+  renewBefore: {{ .Values.webhook.certManager.renewBefore }}
+{{- end }}
+{{- end }} 
