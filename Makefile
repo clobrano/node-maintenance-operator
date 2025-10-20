@@ -15,7 +15,7 @@ OPM_VERSION ?= v1.60.0
 # See github.com/operator-framework/operator-sdk/releases for the last version
 OPERATOR_SDK_VERSION ?= v1.32.0
 # GO_VERSION refers to the version of Golang to be downloaded when running dockerized version
-GO_VERSION = 1.23
+GO_VERSION = 1.24
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.34
 # See https://github.com/slintes/sort-imports/releases for the last version
