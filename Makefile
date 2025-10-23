@@ -3,29 +3,29 @@
 # See https://github.com/kubernetes-sigs/kustomize for the last version
 KUSTOMIZE_VERSION ?= v5@v5.0.0
 # https://github.com/kubernetes-sigs/controller-tools/releases for the last version
-CONTROLLER_GEN_VERSION ?= v0.14.0
+CONTROLLER_GEN_VERSION ?= v0.19.0
 # See https://pkg.go.dev/sigs.k8s.io/controller-runtime/tools/setup-envtest?tab=versions for the last version
-ENVTEST_VERSION ?= v0.0.0-20240112123317-48d9a7b44e54
+ENVTEST_VERSION ?= v0.0.0-20250308055145-5fe7bb3edc86
 # See https://pkg.go.dev/golang.org/x/tools/cmd/goimports?tab=versions for the last version
-GOIMPORTS_VERSION ?= v0.17.0
+GOIMPORTS_VERSION ?= v0.38.0
 # See https://github.com/onsi/ginkgo/releases for the last version
-GINKGO_VERSION ?= v2.22.0
+GINKGO_VERSION ?= v2.26.0
 # See github.com/operator-framework/operator-registry/releases for the last version
-OPM_VERSION ?= v1.35.0
+OPM_VERSION ?= v1.60.0
 # See github.com/operator-framework/operator-sdk/releases for the last version
 OPERATOR_SDK_VERSION ?= v1.32.0
 # GO_VERSION refers to the version of Golang to be downloaded when running dockerized version
-GO_VERSION = 1.23
+GO_VERSION = 1.24
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.28
+ENVTEST_K8S_VERSION = 1.34
 # See https://github.com/slintes/sort-imports/releases for the last version
-SORT_IMPORTS_VERSION = v0.2.1
+SORT_IMPORTS_VERSION = v0.3.0
 # OCP Version: for OKD bundle community
-OCP_VERSION ?= 4.14
+OCP_VERSION ?= 4.16
 # update for major version updates to YQ_VERSION! see https://github.com/mikefarah/yq
 # NOTE: v4.42.1 is the latest supporting go 1.20
 YQ_API_VERSION = v4
-YQ_VERSION = v4.42.1
+YQ_VERSION = v4.48.1
 
 BLUE_ICON_PATH = "./config/assets/nmo_blue_icon.png"
 
